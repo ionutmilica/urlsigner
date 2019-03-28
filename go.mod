@@ -1,1 +1,1 @@
-module urlsigner
+module github.com/ionutmilica/urlsigner
