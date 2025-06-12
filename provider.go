@@ -9,7 +9,6 @@ import (
 )
 
 // SignerProvider is used to sign and verify urls.
-//
 type SignerProvider struct {
 	secretKey string
 	sigField  string
@@ -18,7 +17,7 @@ type SignerProvider struct {
 	algorithm func() hash.Hash
 }
 
-// Sign will sign an URL object returning it updated to include the signature
+// Sign will sign a URL object returning it updated to include the signature
 func (p *SignerProvider) Sign(u url.URL) url.URL {
 	signature := Sign(p.algorithm, p.secretKey, u.String())
 
@@ -29,9 +28,9 @@ func (p *SignerProvider) Sign(u url.URL) url.URL {
 	return u
 }
 
-// SignTemporary will sign an URL object for a limited period of time retuning
+// SignWithExpiry will sign a URL object for a limited period of time returning
 // it updated with two new query strings: signature, expiration
-func (p *SignerProvider) SignTemporary(u url.URL, expireAt time.Time) url.URL {
+func (p *SignerProvider) SignWithExpiry(u url.URL, expireAt time.Time) url.URL {
 	q := u.Query()
 	q.Set(p.expField, strconv.FormatInt(expireAt.Unix(), 10))
 	u.RawQuery = q.Encode()
@@ -39,83 +38,91 @@ func (p *SignerProvider) SignTemporary(u url.URL, expireAt time.Time) url.URL {
 	return p.Sign(u)
 }
 
-// Verify will check an URL object against its signature
-// This signature should be provided by the url itself in a query string
-func (p *SignerProvider) Verify(u url.URL) bool {
-	q := u.Query()
-	signature := q.Get(p.sigField)
-	q.Del(p.sigField)
-	u.RawQuery = q.Encode()
-
-	computedSignature := Sign(p.algorithm, p.secretKey, u.String())
-
-	return Verify(signature, computedSignature)
-}
-
-// VerifyTemporary will check an URL object against its signature and check if it's expired
-// This signature should be provided by the url itself in a query string
-func (p *SignerProvider) VerifyTemporary(u url.URL) bool {
-	q := u.Query()
-	signature := q.Get(p.sigField)
-	exp, _ := strconv.ParseInt(q.Get(p.expField), 10, 64)
-	q.Del(p.sigField)
-	u.RawQuery = q.Encode()
-
-	computedSignature := Sign(p.algorithm, p.secretKey, u.String())
-
-	if !Verify(signature, computedSignature) {
-		return false
-	}
-
-	return time.Unix(exp, 0).After(p.nowFn())
+// SignWithTTL will sign a URL object for a limited period of time returning
+// it updated with two new query strings: signature, expiration
+func (p *SignerProvider) SignWithTTL(u url.URL, ttl time.Duration) url.URL {
+	return p.SignWithExpiry(u, p.nowFn().Add(ttl))
 }
 
 // SignURL acts like Sign method but accepts the url as string instead of url.URL
-func (p *SignerProvider) SignURL(rawURL string) string {
-	u, err := url.Parse(rawURL)
+func (p *SignerProvider) SignURL(rawURL string) (string, error) {
+	u, err := url.ParseRequestURI(rawURL)
 	if err != nil {
-		return ""
+		return "", ErrParseFailure
 	}
 
 	newURL := p.Sign(*u)
 
-	return newURL.String()
+	return newURL.String(), nil
 }
 
-// SignTemporaryURL acts like SignTemporary method but accepts the url as string instead of url.URL
-func (p *SignerProvider) SignTemporaryURL(rawURL string, expireAt time.Time) string {
-	u, err := url.Parse(rawURL)
+// SignURLWithExpiry acts like SignWithExpiry method but accepts the url as string instead of url.URL
+func (p *SignerProvider) SignURLWithExpiry(rawURL string, expireAt time.Time) (string, error) {
+	u, err := url.ParseRequestURI(rawURL)
 	if err != nil {
-		return ""
+		return "", ErrParseFailure
 	}
 
-	newURL := p.SignTemporary(*u, expireAt)
+	newURL := p.SignWithExpiry(*u, expireAt)
 
-	return newURL.String()
+	return newURL.String(), nil
+}
+
+func (p *SignerProvider) SignURLWithTTL(rawURL string, ttl time.Duration) (string, error) {
+	u, err := url.ParseRequestURI(rawURL)
+	if err != nil {
+		return "", ErrParseFailure
+	}
+	newUrl := p.SignWithTTL(*u, ttl)
+	return newUrl.String(), nil
+}
+
+// Verify will check a URL object against its signature
+// This signature should be provided by the url itself in a query string
+func (p *SignerProvider) Verify(u url.URL) error {
+	q := u.Query()
+	signature := q.Get(p.sigField)
+	if signature == "" {
+		return ErrInvalidSignature
+	}
+
+	if expStr := q.Get(p.expField); expStr != "" {
+		expUnix, err := strconv.ParseInt(expStr, 10, 64)
+		if err != nil {
+			return ErrExpired
+		}
+		if time.Unix(expUnix, 0).Before(p.nowFn()) {
+			return ErrExpired
+		}
+	}
+
+	q.Del(p.sigField)
+
+	u.RawQuery = q.Encode()
+	u.Fragment = ""
+
+	computedSignature := Sign(p.algorithm, p.secretKey, u.String())
+
+	if !Verify(signature, computedSignature) {
+		return ErrInvalidSignature
+	}
+
+	return nil
 }
 
 // VerifyURL acts like Verify method but accepts the url as string instead of url.URL
-func (p *SignerProvider) VerifyURL(rawURL string) bool {
-	u, err := url.Parse(rawURL)
+func (p *SignerProvider) VerifyURL(rawURL string) error {
+	u, err := url.ParseRequestURI(rawURL)
 	if err != nil {
-		return false
+		return ErrParseFailure
 	}
 
 	return p.Verify(*u)
 }
 
-// VerifyTemporaryURL acts like VerifyTemporary method but accepts the url as string instead of url.URL
-func (p *SignerProvider) VerifyTemporaryURL(rawURL string) bool {
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return false
-	}
-
-	return p.VerifyTemporary(*u)
-}
-
 // New will create a new SignerProvider.
-//  urlsigner.New("secret-key")
+//
+//	urlsigner.New("secret-key")
 func New(secretKey string, opts ...func(*SignerProvider)) *SignerProvider {
 	provider := &SignerProvider{
 		secretKey: secretKey,

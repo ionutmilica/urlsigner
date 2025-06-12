@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	expectedSignature = "ac90e58e6d3d1b15b6ed55b73d81eacda74b4f563a3cd1278f0033515e406b29"
+	expectedSignature = "rJDljm09GxW27VW3PYHqzadLT1Y6PNEnjwAzUV5Aayk"
 	testSecretKey     = "dev"
 	payload           = "payload"
 )

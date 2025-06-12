@@ -1,57 +1,101 @@
-## Go URL Signer
+# 🔐 Go URL Signer
 
-### Installation:
+A lightweight Go library for generating and verifying **signed, expirable URLs** using HMAC (SHA-256 by default). Perfect for secure link sharing, protected downloads, and time-limited access.
+
+---
+
+## Features
+
+- HMAC-based signing using any `crypto.Hash`
+- Expirable URL support (`exp` query param)
+- Easy to use with `string` or `url.URL`
+- Constant-time signature verification
+- Configurable field names and hash algorithm
+
+## Installation
 
 ```bash
 go get github.com/ionutmilica/urlsigner
 ```
 
-### Examples:
-
-#### Signing an url string
-```go
-package main
-
-import "github.com/ionutmilica/urlsigner"
-
-func main()  {
-    signer := urlsigner.New("key")
-    signedUrl := signer.SignURL("https://my-app.dev?page=protected")
-
-    // Verifying is as simple as providing the signed url:
-    println(signer.VerifyURL(signedUrl))
-}
-```
-Equivalent methods *Sign* and *Verify* are provided for when you want to use url.URL structs instead of strings.
-
-#### Signing an url for a limited period
+## Usage
+### Sign a URL (permanent)
 ```go
 package main
 
 import (
-	"github.com/ionutmilica/urlsigner"
-	"time"
+    "fmt"
+    "github.com/ionutmilica/urlsigner"
 )
 
-func main()  {
-    signer := urlsigner.New("key")
-    expiration := time.Now().UTC().Add(time.Hour)
-    signedUrl := signer.SignTemporaryURL("https://my-app.dev?page=protected", expiration)
+func main() {
+    signer := urlsigner.New("my-secret-key")
 
-    // Verifying is as simple as providing the signed url:
-    println(signer.VerifyTemporaryURL(signedUrl))
+    signedURL, err := signer.SignURL("https://my-app.dev/resource?id=123")
+    if err != nil {
+        panic(err)
+    }
+
+    fmt.Println("Signed URL:", signedURL)
 }
 ```
 
-Equivalent methods *SignTemporary* and *VerifyTemporary* are provided for when you want to use url.URL structs instead of strings.
+### Sign a URL with Expiration
+```go
+package main
 
+import (
+    "fmt"
+    "time"
+    "github.com/ionutmilica/urlsigner"
+)
 
-#### Signing primitives
+func main() {
+    signer := urlsigner.New("my-secret-key")
+    expiration := time.Now().Add(30 * time.Minute)
+
+    signedURL, err := signer.SignURLWithExpiry("https://my-app.dev/protected", expiration)
+    if err != nil {
+        panic(err)
+    }
+
+    fmt.Println("Signed temporary URL:", signedURL)
+}
+```
+
+### Verify a Signed URL
+```go
+err := signer.VerifyURL(signedURL)
+if err != nil {
+    fmt.Println("Invalid or expired URL:", err)
+} else {
+    fmt.Println("Valid URL ✅")
+}
+```
+
+### Use with `url.URL` Objects Directly
+```go
+u, _ := url.Parse("https://my-app.dev/page")
+signed := signer.Sign(*u)
+
+err := signer.Verify(signed)
+```
+
+### Signing Arbitrary Payloads
 ```go
 signature := urlsigner.Sign(sha256.New, "key", "payload")
 isValid := urlsigner.Verify(signature, "expected-signature")
 ```
 
-#### Todo:
-- Route signing
-- HTTP middleware for route signing
+
+### Custom Configuration
+```go
+signer := urlsigner.New("my-secret-key",
+    urlsigner.SignatureField("signature"),
+    urlsigner.ExpirationField("expires"),
+    urlsigner.Algorithm(sha512.New),
+)
+```
+
+## License
+MIT License — see [LICENSE](./LICENSE) for details.
