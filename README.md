@@ -100,7 +100,7 @@ signer := urlsigner.New("my-secret-key",
     urlsigner.WithSignatureField("signature"),
     urlsigner.WithExpirationField("expires"),
     urlsigner.WithAlgorithm(sha512.New),
-	urlsigner.WithEncoding(HexEncoding)
+    urlsigner.WithEncoding(HexEncoding)
 )
 ```
 
