@@ -82,18 +82,25 @@ err := signer.Verify(signed)
 ```
 
 ### Signing Arbitrary Payloads
+#### Default settings
 ```go
 signature := urlsigner.Sign(sha256.New, "key", "payload")
 isValid := urlsigner.Verify(signature, "expected-signature")
 ```
 
+#### Custom encoding
+```go
+signature := urlsigner.SignWithEncoding(sha256.New, HexEncoding, "key", "payload")
+isValid := urlsigner.VerifyWithEncoding(HexEncoding, signature, "expected-signature")
+```
 
 ### Custom Configuration
 ```go
 signer := urlsigner.New("my-secret-key",
-    urlsigner.SignatureField("signature"),
-    urlsigner.ExpirationField("expires"),
-    urlsigner.Algorithm(sha512.New),
+    urlsigner.WithSignatureField("signature"),
+    urlsigner.WithExpirationField("expires"),
+    urlsigner.WithAlgorithm(sha512.New),
+	urlsigner.WithEncoding(HexEncoding)
 )
 ```
 

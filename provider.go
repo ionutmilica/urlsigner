@@ -13,13 +13,14 @@ type SignerProvider struct {
 	secretKey string
 	sigField  string
 	expField  string
+	encoding  Encoding
 	nowFn     func() time.Time
 	algorithm func() hash.Hash
 }
 
 // Sign will sign a URL object returning it updated to include the signature
 func (p *SignerProvider) Sign(u url.URL) url.URL {
-	signature := Sign(p.algorithm, p.secretKey, u.String())
+	signature := SignWithEncoding(p.algorithm, p.encoding, p.secretKey, u.String())
 
 	q := u.Query()
 	q.Set(p.sigField, signature)
@@ -103,7 +104,7 @@ func (p *SignerProvider) Verify(u url.URL) error {
 
 	computedSignature := Sign(p.algorithm, p.secretKey, u.String())
 
-	if !Verify(signature, computedSignature) {
+	if !VerifyWithEncoding(p.encoding, computedSignature, signature) {
 		return ErrInvalidSignature
 	}
 
@@ -129,6 +130,7 @@ func New(secretKey string, opts ...func(*SignerProvider)) *SignerProvider {
 		expField:  "exp",
 		sigField:  "sig",
 		algorithm: sha256.New,
+		encoding:  Base64Encoding,
 		nowFn: func() time.Time {
 			return time.Now().UTC()
 		},
@@ -141,21 +143,28 @@ func New(secretKey string, opts ...func(*SignerProvider)) *SignerProvider {
 	return provider
 }
 
-// Algorithm allows overriding of the internal hashing algorithm
-func Algorithm(alg func() hash.Hash) func(*SignerProvider) {
+// WithAlgorithm allows overriding of the internal hashing algorithm
+func WithAlgorithm(alg func() hash.Hash) func(*SignerProvider) {
 	return func(provider *SignerProvider) { provider.algorithm = alg }
 }
 
-// ExpirationField allows overriding of the internal field name for expiration
-func ExpirationField(name string) func(*SignerProvider) {
+// WithExpirationField allows overriding of the internal field name for expiration
+func WithExpirationField(name string) func(*SignerProvider) {
 	return func(provider *SignerProvider) {
 		provider.expField = name
 	}
 }
 
-// SignatureField allows overriding of the internal field name for signature
-func SignatureField(name string) func(*SignerProvider) {
+// WithSignatureField allows overriding of the internal field name for signature
+func WithSignatureField(name string) func(*SignerProvider) {
 	return func(provider *SignerProvider) {
 		provider.sigField = name
+	}
+}
+
+// WithEncoding allows overriding of the internal encoding mechanism
+func WithEncoding(encoding Encoding) func(*SignerProvider) {
+	return func(provider *SignerProvider) {
+		provider.encoding = encoding
 	}
 }

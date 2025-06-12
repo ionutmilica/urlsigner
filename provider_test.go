@@ -104,6 +104,7 @@ func TestSignerProvider_SignWithExpiry_Verify_OnlyHost(t *testing.T) {
 		expField:  "exp",
 		sigField:  "sig",
 		algorithm: sha256.New,
+		encoding:  Base64Encoding,
 		nowFn: func() time.Time {
 			return now
 		},
@@ -128,6 +129,7 @@ func TestSignerProvider_SignWithExpiry_Verify_HostAndQuery(t *testing.T) {
 		expField:  "exp",
 		sigField:  "sig",
 		algorithm: sha256.New,
+		encoding:  Base64Encoding,
 		nowFn: func() time.Time {
 			return now
 		},
@@ -208,6 +210,7 @@ func TestSignerProvider_Verify_Expired(t *testing.T) {
 		expField:  "exp",
 		sigField:  "sig",
 		algorithm: sha256.New,
+		encoding:  Base64Encoding,
 		nowFn: func() time.Time {
 			return now
 		},
@@ -272,6 +275,7 @@ func TestSignerProvider_SignURLWithExpiry_Verify_HostAndQuery(t *testing.T) {
 		expField:  "exp",
 		sigField:  "sig",
 		algorithm: sha256.New,
+		encoding:  Base64Encoding,
 		nowFn: func() time.Time {
 			return now
 		},
@@ -300,6 +304,7 @@ func TestSignerProvider_SignURLWithExpiry_Verify_Malformed(t *testing.T) {
 		expField:  "exp",
 		sigField:  "sig",
 		algorithm: sha256.New,
+		encoding:  Base64Encoding,
 		nowFn: func() time.Time {
 			return now
 		},
@@ -318,6 +323,7 @@ func TestSignerProvider_SignWithTTL_Verify_HostAndQuery(t *testing.T) {
 		expField:  "exp",
 		sigField:  "sig",
 		algorithm: sha256.New,
+		encoding:  Base64Encoding,
 		nowFn: func() time.Time {
 			return now
 		},
@@ -346,6 +352,7 @@ func TestSignerProvider_SignURLWithTTL_Verify_Malformed(t *testing.T) {
 		expField:  "exp",
 		sigField:  "sig",
 		algorithm: sha256.New,
+		encoding:  Base64Encoding,
 		nowFn: func() time.Time {
 			return now
 		},
@@ -359,7 +366,7 @@ func TestSignerProvider_SignURLWithTTL_Verify_Malformed(t *testing.T) {
 
 // Options
 func TestSignerProvider_Options_CustomSignatureField(t *testing.T) {
-	signer := New(providerPrivateKey, SignatureField("siga"))
+	signer := New(providerPrivateKey, WithSignatureField("siga"))
 
 	signedUrl, err := signer.SignURL("https://my-app.dev")
 	if err != nil {
@@ -372,7 +379,7 @@ func TestSignerProvider_Options_CustomSignatureField(t *testing.T) {
 }
 
 func TestSignerProvider_Options_CustomExpirationField(t *testing.T) {
-	signer := New(providerPrivateKey, ExpirationField("expa"))
+	signer := New(providerPrivateKey, WithExpirationField("expa"))
 
 	signedUrl, err := signer.SignURLWithTTL("https://my-app.dev", time.Hour)
 	if err != nil {
@@ -385,9 +392,18 @@ func TestSignerProvider_Options_CustomExpirationField(t *testing.T) {
 }
 
 func TestSignerProvider_Options_CustomAlgorithm(t *testing.T) {
-	signer := New(providerPrivateKey, Algorithm(func() hash.Hash {
+	signer := New(providerPrivateKey, WithAlgorithm(func() hash.Hash {
 		return md5.New()
 	}))
+
+	_, err := signer.SignURLWithTTL("https://my-app.dev", time.Hour)
+	if err != nil {
+		t.Fatalf("signer returned an error: %v", err)
+	}
+}
+
+func TestSignerProvider_Options_CustomEncoding(t *testing.T) {
+	signer := New(providerPrivateKey, WithEncoding(Base64Encoding))
 
 	_, err := signer.SignURLWithTTL("https://my-app.dev", time.Hour)
 	if err != nil {
